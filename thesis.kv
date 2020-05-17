@@ -1,0 +1,8 @@
+#:import Factory kivy.factory.Factory
+<MyWidget>:
+    id: my_widget
+    GridLayout:
+        cols:1
+        FileChooserListView:
+            id: filechooser
+            on_selection: my_widget.selected(filechooser.selection)
