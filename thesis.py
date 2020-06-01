@@ -15,11 +15,16 @@ from kivy.uix.label import Label
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
-const_max_a_eyes = 7.245
-const_max_b_eyes = 1.0001
-const_min_a_lips = 12.984
-const_min_eyes = 0.071
-const_max_eyes = 0.958
+
+const_a_eyes = 1.80974
+const_b_eyes = -7.81246
+const_a_lips = 20.99691
+const_eyes = 1.01033
+
+const_dev_a_eyes = 6.1676
+const_dev_b_eyes = 10.0553
+const_dev_a_lips = 25.7925
+const_dev_eyes = 0.1673
 
 
 class MyWidget(BoxLayout):
@@ -45,19 +50,15 @@ def detection(link):
         show_popup("Invalid file")
 
     else:
-        # detect faces in the grayscale image
         rects = detector(gray, 1)
         if len(rects) == 0:
             show_popup("No face detected")
         else:
             for (i, rect) in enumerate(rects):
-                # determine the facial landmarks for the face region, then
-                # convert the landmark (x, y)-coordinates to a NumPy array
                 shape = predictor(gray, rect)
                 shape = face_utils.shape_to_np(shape)
 
                 enough = 0
-                # loop over the face parts individually
                 for (name, (i, j)) in face_utils.FACIAL_LANDMARKS_IDXS.items():
                     img = crop_image(shape[i:j], link)
                     if name == 'mouth':
@@ -82,14 +83,16 @@ def detection(link):
                 a_sum_lip = a_lip / sum_lip
                 eyes = sum_left_eye / sum_right_eye
                 text = "List of possible diseases:\n"
-                if a_sum_eye > const_max_a_eyes:
+                t = 1
+                print(a_sum_eye, b_sum_eye, a_sum_lip, eyes)
+                if a_sum_eye > const_a_eyes + t * const_dev_a_eyes:
                     text += "Scleritis\nSubconjunctival Hemorrhage\nCorneal Ulcer\nExtraocular Muscle Entrapment (Inf Rectus)" \
                             "\nMuddy Brown Sclera\nPeriorbital Cellulitis\nPeriorbital Echymosis"
-                if b_sum_eye > const_max_b_eyes:
+                if b_sum_eye > const_b_eyes + t * const_dev_b_eyes:
                     text += "\nIcterus"
-                if a_sum_lip > const_min_a_lips:
+                if a_sum_lip < const_a_lips - t * const_dev_a_lips:
                     text += "\nCyanosis"
-                if eyes > const_min_eyes + const_max_eyes or eyes < const_max_eyes - const_min_eyes:
+                if eyes > const_eyes + t * const_dev_eyes or eyes < const_eyes - t * const_dev_eyes:
                     text += "\nCentral CN 7 Palsy\nPeripheral CN7 Palsy\nExtraocular Muscle Entrapment (Inf Rectus)\nHorner’s Syndrome" \
                             "\nPeriorbital Cellulitis\nPeriorbital Echymosis"
                 if text == "List of possible diseases:\n":
@@ -131,7 +134,6 @@ def calculate_a_b_sum(photo):
 
 
 def rgb_to_cielab(a):
-    # a is a pixel with RGB coloring
     a1,a2,a3 = a/255
 
     color1_rgb = sRGBColor(a1, a2, a3)
@@ -147,22 +149,15 @@ def crop_image(part, link):
     image = cv2.imread(link)
     img = imutils.resize(image, width=500)
 
-    # from vertices to a matplotlib path
     path = Path(vertices)
 
-    # create a mesh grid for the whole image, you could also limit the
-    # grid to the extents above, I'm creating a full grid for the plot below
     x, y = np.mgrid[:img.shape[1], :img.shape[0]]
-    # mesh grid to a list of points
     points = np.vstack((x.ravel(), y.ravel())).T
 
-    # select points included in the path
     mask = path.contains_points(points)
 
-    # reshape mask for display
     img_mask = mask.reshape(x.shape).T
 
-    # masked image
     img *= img_mask[..., None]
     return img
 
